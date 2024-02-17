@@ -18,45 +18,34 @@
 </head>
 
 <body>
-  <div class="container">
-    <table>
-      <tr>
-        <td>Producing delay min</td>
-        <td><input id="prod-delay-min" type="number" min="200" step="100" class="form-control form-control-sm"></td>
-      </tr>
+  <div class="page-layout">
 
-      <tr>
-        <td>Producing delay max</td>
-        <td><input id="prod-delay-max" type="number" min="200" step="100" class="form-control form-control-sm"></td>
-      </tr>
+    <div class="side-control">
+      <div class="container">
 
-      <tr>
-        <td>Consuming delay min</td>
-        <td><input id="cons-delay-min" type="number" min="200" step="100" class="form-control form-control-sm"></td>
-      </tr>
+        <div class="input-group">
+          <input id="chunks-count" type="number" min="1" class="input">
+          <label class="label">No. of Chunks</label>
+        </div>
 
-      <tr>
-        <td>Consuming delay max</td>
-        <td><input id="cons-delay-max" type="number" min="200" step="100" class="form-control form-control-sm"></td>
-      </tr>
+        <div class="input-group">
+          <input id="queue-cap" type="number" min="1" max="6" class="input">
+          <label class="label">Queue Capacity</label>
+        </div>
 
-      <tr>
-        <td>Produce chunks</td>
-        <td><input id="chunks-count" type="number" min="1" class="form-control form-control-sm"></td>
-      </tr>
+        <button id="options-apply" class="btn">Apply</button>
 
-      <tr>
-        <td>Queue capacity</td>
-        <td><input id="queue-cap" type="number" min="1" max="6" class="form-control form-control-sm"></td>
-      </tr>
-    </table>
+      </div>
+    </div>
 
-    <button id="options-apply" class="btn btn-primary">Apply</button> ...or use preset: <a href="javascript: void 0" id="preset-fpsc" class="btn-preset">Fast&rarr;Slow</a> / <a href="javascript: void 0" id="preset-spfc" class="btn-preset">Slow&rarr;Fast</a> / <a href="javascript: void 0" id="preset-random" class="btn-preset">Random</a>
+    <div class="exp-vis">
+      <div id="canvas-container">
+        <canvas id="canvas"></canvas>
+      </div>
+    </div>
+
   </div>
 
-  <div id="canvas-container">
-    <canvas id="canvas"></canvas>
-  </div>
 
   <script src="model.js"></script>
   <script src="page.js"></script>

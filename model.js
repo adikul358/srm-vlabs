@@ -33,13 +33,6 @@
 
   EventLoop.prototype.execute = function() {
     this._current = this._events.shift();
-    console.debug(
-      (Date.now() - this._startAt) + ':', 
-      this._current.run.name, 
-      'at', 
-      this._current.time,
-      '(delay', this._current.delay, ')'
-    );
     this._current.run();
   };
 
@@ -79,6 +72,7 @@
   };
 
   Producer.prototype.resume = function() {
+    if (this._produced === this._count) { return 0 }
     this._state = 'resuming';
     var self = this;
     this._eventLoop.pushImmediate({
@@ -100,6 +94,7 @@
         delay: 0,
         run: function pushEvent() { self._push(); }
       });
+      
     } else {
       this._chunk.progress += 10;
       this._eventLoop.push({
@@ -107,6 +102,7 @@
         run: function produceContinuationEvent() { self._produce(); }
       });
     }
+
   };
 
   Producer.prototype._push = function(chunk) {
@@ -119,7 +115,12 @@
           ? {id: self._chunk.id + 1, progress: 0}
           : null;
         if (self._backpressure) {
-          self._state = 'idling';
+          if (self._produced === self._count) {
+            self._state = 'finished';
+            self._end();
+          } else {
+            self._state = 'idling';
+          }
         } else {
           self._produce();
         }
@@ -169,7 +170,6 @@
   
   Consumer.prototype.write = function(chunk) {
     if (chunk === null) {
-      console.log("ended by prod")
       this.end();
       return false;
     }
@@ -274,8 +274,6 @@
     var self = this;
     (function run() {
       delete self._tick;
-
-      console.log(self._consumer._state)
 
       if (self._eventLoop.empty()) {
         self._state = 'finished';
@@ -525,7 +523,7 @@
       color: '#331A53', 
       radius: 3
     });
-    this.drawText(chunk.id, x + 0.5, y + 0.65, {align: 'center', color: '#331A53'});
+    this.drawText(chunk.id + 1, x + 0.5, y + 0.65, {align: 'center', color: '#331A53'});
   }
 
   Renderer.prototype._drawBackpressureWarn = function(queue) {
