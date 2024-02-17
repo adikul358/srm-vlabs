@@ -1,6 +1,8 @@
 (function() {
   'use strict';
 
+  // EventLoop ====================================================================================
+
   function EventLoop() {
     this._events = [];
     this._current = void 0;
@@ -44,6 +46,10 @@
   EventLoop.prototype.empty = function() {
     return this._events.length === 0;
   };
+
+
+
+// Producer =======================================================================================
 
 
   function Producer(eventLoop, consumer, options) {
@@ -131,6 +137,10 @@
   };
 
 
+
+// Consumer ==2=====================================================================================
+
+
   function Consumer(eventLoop, options) {
     options = options || {};
     this._eventLoop = eventLoop;
@@ -203,7 +213,7 @@
   };
 
   Consumer.prototype._consume = function() {
-    this._state = this._endCalled ? 'flushing' : 'consuming';
+    this._state = 'consuming';
     this._draining = false;
 
     var self = this;
@@ -228,6 +238,10 @@
       });
     }
   };
+
+
+
+// Model ==========================================================================================
 
 
   function Model(eventLoop, producer, consumer, renderer) {
@@ -298,6 +312,10 @@
   };
 
 
+
+// Renderer =======================================================================================
+
+
   function Renderer(canvas, dimX, dimY, fps) {
     this._ctx = canvas.getContext('2d');
     this._width = canvas.width;
@@ -336,7 +354,6 @@
       this._drawProducer(producer, consumer.queue);
       this._drawQueue(consumer.queue);
       this._drawConsumer(consumer);
-      this._drawPauseHint();
       resolve();
     }.bind(this));
   };
@@ -355,7 +372,7 @@
     } 
 
     this._ctx.fillStyle = options.color || '#000';
-    this._ctx.font = options.font || '24px Arial';
+    this._ctx.font = options.font || '24px Plus Jakarta Sans';
     this._ctx.textAlign = options.align || 'left';
     this._ctx.fillText(message, x, y);
 
@@ -426,12 +443,13 @@
     var x = this._prodX();
     var y = this._prodY();
     this.drawRect(x, y, this._prodW, this._prodH, {
-      color: '#FFE0B2',
-      border: '#000000',
-      radius: 10
+      color: '#7F4EBD',
+      border: '#331A53',
+      radius: 6
     });
     this.drawText(producerText(producer), this._dimX / 2, y + 0.6, {
-      align: 'center'
+      align: 'center', 
+      color: '#FFFFFFCC',
     });
     if (producer.state === 'producing') {
       this._drawChunk(producer.chunk, this._chunkX(), y + 1);
@@ -445,12 +463,13 @@
     var x = this._consX(consumer);
     var y = this._consY(consumer);
     this.drawRect(x, y, this._consW, this._consH, {
-      color: '#FFE0B2',
-      border: '#000000',
-      radius: 10
+      color: '#7F4EBD',
+      border: '#331A53',
+      radius: 6
     })
     this.drawText(consumerText(consumer), this._dimX / 2, y + 1.6, {
-      align: 'center'
+      align: 'center',
+      color: '#FFFFFFCC',
     });
     if (consumer.state === 'consuming' || consumer.state === 'flushing') {
       this._drawChunk(consumer.chunk, this._chunkX(), y);
@@ -466,7 +485,7 @@
     offset = offset || 0;
     this.drawRect(x, y, this._queueW, this._queueH(queue), {
       color: '#FFF',
-      border: '#000'
+      border: '#331A53'
     });
     this.drawRect(
       x - 0.2, 
@@ -488,7 +507,7 @@
   }
 
   Renderer.prototype._drawChunk = function(chunk, x, y) {
-    var payloadColor = (chunk.id % 2) ? '#F8CECC' : '#E1D5E7';
+    var payloadColor = '#C7BFD1';
     this.drawRect(x, y, this._chunkW, this._chunkH, {
       color: 'white', 
       radius: 3
@@ -498,39 +517,30 @@
       radius: 3
     });
     this._strokeRect(x, y, this._chunkW, this._chunkH, {
-      color: 'black', 
+      color: '#331A53', 
       radius: 3
     });
-    this.drawText(chunk.id, x + 0.5, y + 0.65, {align: 'center'});
+    this.drawText(chunk.id, x + 0.5, y + 0.65, {align: 'center', color: '#331A53'});
   }
 
   Renderer.prototype._drawBackpressureWarn = function(queue) {
     this.drawText(
-      'Backpressure!', 
+      'Backpressure', 
       this._queueX() + this._queueW + 1.5,
       this._queueY() + this._queueH(queue) / 2,
-      {align: 'center', color: 'red', rotate: -30}
+      {align: 'center', color: 'red', font: "20px Plus Jakarta Sans"}
     );
   };
 
   Renderer.prototype._drawDrainWarn = function(queue) {
     this.drawText(
-      'Draining!', 
-      this._queueX() - 1.5,
+      'Draining', 
+      this._queueX() - 1,
       this._queueY() + this._queueH(queue) / 2,
-      {align: 'center', color: 'green', rotate: -30}
+      {align: 'center', color: 'green', font: "20px Plus Jakarta Sans"}
     );
   };
 
-  Renderer.prototype._drawPauseHint = function() {
-    this.drawText(
-      '(tap to pause/resume)', 
-      this._dimX / 2, 
-      this._dimY - 0.5, {
-        align: 'center',
-        font: 'italic 14px Arial'
-    });
-  };
 
   Renderer.prototype._animatePushing = function(producer, consumer) {
     var chunk = producer.chunk;
@@ -550,7 +560,6 @@
         this._drawQueue(queue);
         this._drawConsumer(consumer);
         this._drawChunk(chunk, this._chunkX(), chunkY);
-        this._drawPauseHint();
         if (chunkY >= endY) {
           clearInterval(int);
           if (producer.backpressure) {
@@ -581,7 +590,6 @@
         this._drawQueue(queue, 1);
         this._drawConsumer(consumer);
         this._drawChunk(chunk, this._chunkX(), chunkY);
-        this._drawPauseHint();
         if (chunkY >= endY) {
           clearInterval(anim);
           if (consumer.draining) {
@@ -650,13 +658,18 @@
   };
 
 
+// Misc ===========================================================================================
+
+
   function producerText(producer) {
     var message = producer.state;
+    if (message == 'pushing') { message = 'producing' }
     return String.fromCharCode(message.charCodeAt(0) - 32) + message.slice(1);
   }
 
   function consumerText(consumer) {
     var message = consumer.state;
+    if (message == 'pulling') { message = 'consuming' }
     return String.fromCharCode(message.charCodeAt(0) - 32) + message.slice(1);
   }
 
@@ -670,6 +683,9 @@
   function rand(a, b) {
     return a + Math.floor(Math.random() * (b - a + 1));
   }
+
+
+  // Start Model ==================================================================================
 
   window.startModel = function startModel(options) {
     var canvas = document.getElementById(options.canvasId);
