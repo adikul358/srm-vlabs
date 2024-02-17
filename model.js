@@ -544,6 +544,7 @@
   }
 
   Renderer.prototype._drawChunk = function(chunk, x, y) {
+    if (y == 2) { this.semaphore.state = 1 }
     if (chunk == null) {return 0}
     var payloadColor = '#C7BFD1';
     this.drawRect(x, y, this._chunkW, this._chunkH, {
