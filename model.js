@@ -328,10 +328,14 @@
     this._unitY = Math.floor(this._height / this._dimY);
     this._fps = fps || 60;
 
+    this.semaphore = {state: 1}
+
     this._prodW = 5;
     this._prodH = 2;
     this._consW = 5;
     this._consH = 2;
+    this._semaW = 2;
+    this._semaH = 2;
     this._chunkW = 1;
     this._chunkH = 1;
     this._queueW = 1;
@@ -354,6 +358,7 @@
 
       this.clear();
       this._drawProducer(producer, consumer.queue);
+      this._drawSemaphore();
       this._drawQueue(consumer.queue);
       this._drawConsumer(consumer);
       resolve();
@@ -449,7 +454,7 @@
       border: '#331A53',
       radius: 6
     });
-    this.drawText(producerText(producer), this._dimX / 2, y + 0.6, {
+    this.drawText(producerText(producer), (this._dimX - 3) / 2, y + 0.6, {
       align: 'center', 
       color: '#FFFFFFCC',
     });
@@ -469,7 +474,11 @@
       border: '#331A53',
       radius: 6
     })
-    this.drawText(consumerText(consumer), this._dimX / 2, y + 1.6, {
+    if (consumer.state === 'finished') { 
+      this.semaphore.state = "-"; 
+      this._drawSemaphore();
+    }
+    this.drawText(consumerText(consumer), (this._dimX - 3) / 2, y + 1.6, {
       align: 'center',
       color: '#FFFFFFCC',
     });
@@ -479,6 +488,32 @@
     // if (consumer.drained) {
     //   this._drawDrainWarn(consumer.queue);
     // }
+  }
+
+  Renderer.prototype._drawSemaphore = function() {
+    var x = this._dimX - 3
+    var y = this._dimY / 2 - 1
+    var state = this.semaphore.state;
+    var text = ""
+    if (state == "-") {
+      text = "Finished"
+    } else {
+      text = this.semaphore.state ? 'Signal' : 'Wait'
+    }
+    this.drawRect(x, y, this._semaW, this._semaH, {
+      color: '#C7BFD1',
+      border: '#7F4EBD',
+      radius: 6
+    })
+    this.drawText(state, x + 1, y + 1, {
+      align: 'center',
+      color: '#7F4EBD',
+    });
+    this.drawText(text, x + 1, y + 1.5, {
+      align: 'center',
+      color: '#7F4EBD',
+      font: '600 18px Plus Jakarta Sans'
+    });
   }
 
   Renderer.prototype._drawQueue = function(queue, offset) {
@@ -520,10 +555,10 @@
       radius: 3
     });
     this._strokeRect(x, y, this._chunkW, this._chunkH, {
-      color: '#331A53', 
+      color: '#7F4EBD', 
       radius: 3
     });
-    this.drawText(chunk.id + 1, x + 0.5, y + 0.65, {align: 'center', color: '#331A53'});
+    this.drawText(chunk.id + 1, x + 0.5, y + 0.65, {align: 'center', color: '#7F4EBD'});
   }
 
   Renderer.prototype._drawBackpressureWarn = function(queue) {
@@ -548,7 +583,7 @@
   Renderer.prototype._animatePushing = function(producer, consumer) {
     var chunk = producer.chunk;
     var queue = consumer.queue;
-
+    this.semaphore.state = 1;
     return new Promise(function(resolve) {
       var startY = this._prodY() + 1.5;
       var endY = this._queueY() + (queue.cap - queue.chunks.length - 1);
@@ -561,6 +596,7 @@
         this.clear();
         this._drawProducer(producer, queue);
         this._drawQueue(queue);
+        this._drawSemaphore();
         this._drawConsumer(consumer);
         this._drawChunk(chunk, this._chunkX(), chunkY);
         if (chunkY >= endY) {
@@ -578,6 +614,7 @@
   Renderer.prototype._animatePulling = function(producer, consumer) {
     var chunk = consumer.chunk;
     var queue = consumer.queue;
+    this.semaphore.state = 0;
 
     return new Promise(function(resolve) {
       var startY = this._queueY() + this._queueH(queue) - 1;
@@ -591,6 +628,7 @@
         this.clear();
         this._drawProducer(producer, queue);
         this._drawQueue(queue, 1);
+        this._drawSemaphore();
         this._drawConsumer(consumer);
         this._drawChunk(chunk, this._chunkX(), chunkY);
         if (chunkY >= endY) {
@@ -623,15 +661,15 @@
   };
 
   Renderer.prototype._prodX = function() {
-    return (this._dimX - this._prodW) / 2;
+    return (this._dimX - this._prodW - 3) / 2;
   };
 
   Renderer.prototype._prodY = function() {
     return 1;
   };
 
-  Renderer.prototype._consX = function(consumer) {
-    return (this._dimX - this._consW) / 2;
+  Renderer.prototype._consX = function() {
+    return (this._dimX - this._consW - 3) / 2;
   };
 
   Renderer.prototype._consY = function(consumer) {
@@ -639,7 +677,7 @@
   };
 
   Renderer.prototype._chunkX = function() {
-    return (this._dimX - this._chunkW) / 2;
+    return (this._dimX - this._chunkW - 3) / 2;
   };
 
   Renderer.prototype._queueX = function() {
