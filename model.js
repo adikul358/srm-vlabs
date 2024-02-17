@@ -56,17 +56,18 @@
     options = options || {};
     this._eventLoop = eventLoop;
     this._consumer = consumer;
-    this._state = 'paused';
+    this._state = 'idling';
     this._delay = delayFromRange(options.delay || [1000, 1000]),
     this._count = options.count || 50;
     this._chunk = {id: 0, progress: 0};
     this._produced = 0;
     this._backpressure = false;
 
-    this._consumer.subOnDrain(function () {
+    this._consumer.subOnDrained(function () {
       this._backpressure = false;
       this.resume();
     }.bind(this));
+
   }
 
   Producer.prototype.toJSON = function() {
@@ -118,7 +119,7 @@
           ? {id: self._chunk.id + 1, progress: 0}
           : null;
         if (self._backpressure) {
-          self._state = 'paused';
+          self._state = 'idling';
         } else {
           self._produce();
         }
@@ -127,7 +128,7 @@
   };
 
   Producer.prototype._end = function(chunk) {
-    this._state = 'ended';
+    this._state = 'finished';
     this._backpressure = false;
     var self = this;
     this._eventLoop.push({
@@ -149,8 +150,8 @@
     this._queue = [];
     this._queueCap = options.capacity || 3;
     this._chunk = void 0;
-    this._draining = false;
-    this._drainListeners = [];
+    this._drained = false;
+    this._drainedListeners = [];
     this._endCalled = false;
   }
 
@@ -162,12 +163,13 @@
         cap: this._queueCap,
         chunks: this._queue,
       },
-      draining: this._draining
+      drained: this._drained
     };
   };
-
+  
   Consumer.prototype.write = function(chunk) {
     if (chunk === null) {
+      console.log("ended by prod")
       this.end();
       return false;
     }
@@ -176,21 +178,24 @@
       throw new Error('Out of memory');
     }
     this._queue.push(chunk);
-    if (this._state === 'idling') {
+    if (this._queue.length == this._queueCap) {
       this._resume();
     }
-    return this._queue.length < this._queueCap;
+
+    return this._state === "idling";
   };
 
-  Consumer.prototype.subOnDrain = function(cb) {
-    this._drainListeners.push(cb);
+  Consumer.prototype.subOnDrained = function(cb) {
+    this._drainedListeners.push(cb);
   };
 
   Consumer.prototype.end = function() {
+    this._resume();
     this._endCalled = true;
   };
 
   Consumer.prototype._resume = function() {
+    if (this._state == "finished") { return }
     this._state = 'resuming';
     var self = this;
     this._eventLoop.pushImmediate({
@@ -199,12 +204,7 @@
   };
 
   Consumer.prototype._pull = function() {
-    this._state = 'pulling';
-    this._draining = (this._queue.length === this._queueCap);
-    if (this._draining) {
-      this._drainListeners.forEach(function(cb) { cb(); });
-    }
-
+    this._state = 'pulling';  
     var self = this;
     this._chunk = this._queue.shift();
     this._eventLoop.pushImmediate({
@@ -214,20 +214,22 @@
 
   Consumer.prototype._consume = function() {
     this._state = 'consuming';
-    this._draining = false;
-
+    this._drained = false;
     var self = this;
-    if (this._chunk.progress === 0) {
+    if (this._chunk.progress === 0 && self._state != "finished") {
       this._delay = delayFromRange(this._delay.range);
       this._eventLoop.push({
         delay: 0,
         run: function pullEvent() {
           if (self._queue.length === 0) {
+            self._drained = true
+            self._drainedListeners.forEach(function(cb) { cb(); });
             self._chunk = void 0;
             self._state = self._endCalled ? 'finished' : 'idling';
-          } else {
+          } else if (self._state !== 'idling' && self._state !== 'finished') {
             self._pull();
           }
+
         }
       });
     } else {
@@ -272,6 +274,8 @@
     var self = this;
     (function run() {
       delete self._tick;
+
+      console.log(self._consumer._state)
 
       if (self._eventLoop.empty()) {
         self._state = 'finished';
@@ -454,9 +458,9 @@
     if (producer.state === 'producing') {
       this._drawChunk(producer.chunk, this._chunkX(), y + 1);
     }
-    if (producer.backpressure) {
-      this._drawBackpressureWarn(queue);
-    }
+    // if (producer.backpressure) {
+    //   this._drawBackpressureWarn(queue);
+    // }
   }
 
   Renderer.prototype._drawConsumer = function(consumer) {
@@ -474,9 +478,9 @@
     if (consumer.state === 'consuming' || consumer.state === 'flushing') {
       this._drawChunk(consumer.chunk, this._chunkX(), y);
     }
-    if (consumer.draining) {
-      this._drawDrainWarn(consumer.queue);
-    }
+    // if (consumer.drained) {
+    //   this._drawDrainWarn(consumer.queue);
+    // }
   }
 
   Renderer.prototype._drawQueue = function(queue, offset) {
@@ -507,6 +511,7 @@
   }
 
   Renderer.prototype._drawChunk = function(chunk, x, y) {
+    if (chunk == null) {return 0}
     var payloadColor = '#C7BFD1';
     this.drawRect(x, y, this._chunkW, this._chunkH, {
       color: 'white', 
@@ -534,7 +539,7 @@
 
   Renderer.prototype._drawDrainWarn = function(queue) {
     this.drawText(
-      'Draining', 
+      'Drained', 
       this._queueX() - 1,
       this._queueY() + this._queueH(queue) / 2,
       {align: 'center', color: 'green', font: "20px Plus Jakarta Sans"}
@@ -592,13 +597,7 @@
         this._drawChunk(chunk, this._chunkX(), chunkY);
         if (chunkY >= endY) {
           clearInterval(anim);
-          if (consumer.draining) {
-            setTimeout(function() {
-              this._animateQueueShift(queue).then(resolve);
-            }.bind(this), 150);
-          } else {
-            this._animateQueueShift(queue).then(resolve);
-          }
+          this._animateQueueShift(queue).then(resolve);
         }
       }.bind(this), frameDuration);
     }.bind(this));

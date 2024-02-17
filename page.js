@@ -6,7 +6,7 @@
   var fpscOptions = {
     consumerDelay: [2000, 2000],
     producerDelay: [700, 700],
-    chunksCount: 10,
+    chunksCount: 2,
     queueCapacity: 4,
     canvasId: canvasId,
     dimX: dimX
